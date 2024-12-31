@@ -1,19 +1,24 @@
-use std::num::NonZeroU16;
-use std::mem::transmute;
+// use std::num::NonZeroU16;
+use std::{mem::transmute, num::NonZeroU16};
+use std::vec::Vec;
 use crate::hash::{HashFn, sample};
 
-const MEMTABLE_SIZE: usize = 2048;
 
 
-const fn to_usize(x: NonZeroU16) -> usize{
+const MEMTABLE_SIZE: usize = 1<<16;
+
+type TreePtrNz = NonZeroU16;
+type TreePtr = u16 ;
+
+const fn to_usize(x: TreePtrNz) -> usize{
     unsafe {
-        transmute::<NonZeroU16, u16>(x) as usize
+        transmute::<TreePtrNz, TreePtr>(x) as usize
     }
 }
 
-const fn to_usize_o(x: Option<NonZeroU16>) -> usize{
+const fn to_usize_o(x: Option<TreePtrNz>) -> usize{
     unsafe {
-        transmute::<Option<NonZeroU16>, u16>(x) as usize
+        transmute::<Option<TreePtrNz>, TreePtr>(x) as usize
     }
 }
 
@@ -27,8 +32,8 @@ const fn max(x: u8, y:u8) -> u8{
 struct BstNode {
     key: usize,
     // lc and rc are 0
-    lc: Option<NonZeroU16>, 
-    rc: Option<NonZeroU16>,
+    lc: Option<TreePtrNz>, 
+    rc: Option<TreePtrNz>,
 }
 
 impl BstNode {
@@ -36,30 +41,30 @@ impl BstNode {
     const fn lc(&self) -> Option<usize> {
         match self.lc {
             Option::None => Option::None,
-            Option::Some(x) => unsafe { Option::Some((transmute::<NonZeroU16, u16>(x)) as usize) },
+            Option::Some(x) => unsafe { Option::Some((transmute::<TreePtrNz, TreePtr>(x)) as usize) },
         }
     }
     const fn rc(&self) -> Option<usize> {
         match self.rc {
             Option::None => Option::None,
-            Option::Some(x) => unsafe { Option::Some((transmute::<NonZeroU16, u16>(x)) as usize) },
+            Option::Some(x) => unsafe { Option::Some((transmute::<TreePtrNz, TreePtr>(x)) as usize) },
         }
     }
 
-    const fn set_rc(&mut self, rc: u16) {
+    const fn set_rc(&mut self, rc: TreePtr) {
         // safe because if rc is root (0), we set rc=None
-        self.rc =  unsafe { transmute::<u16, Option<NonZeroU16>>(rc) }
+        self.rc =  unsafe { transmute::<TreePtr, Option<TreePtrNz>>(rc) }
     }
-    const fn set_lc(&mut self, lc: u16) {
+    const fn set_lc(&mut self, lc: TreePtr) {
         // safe because if lc is root (0), we set lc=None
-        self.lc =  unsafe { transmute::<u16, Option<NonZeroU16>>(lc) }
+        self.lc =  unsafe { transmute::<TreePtr, Option<TreePtrNz>>(lc) }
     }
 
 }
 
 
 impl BstNode {
-    const fn new(key: usize, parent: u16) -> BstNode {
+    const fn new(key: usize) -> BstNode {
         BstNode {
             key,
             lc: Option::None,
@@ -75,7 +80,7 @@ pub struct Bst {
     nodes: [BstNode; MEMTABLE_SIZE],
     vals: [usize; MEMTABLE_SIZE],
     depths: [u8; MEMTABLE_SIZE],
-    parent: [u16; MEMTABLE_SIZE],
+    parent: [TreePtr; MEMTABLE_SIZE],
 }
 
 
@@ -84,7 +89,7 @@ impl Bst {
     pub fn new() -> Bst {
         Bst {
             nextfree: 0, 
-            nodes: [BstNode::new(0, 0); MEMTABLE_SIZE],
+            nodes: [BstNode::new(0); MEMTABLE_SIZE],
             vals: [0; MEMTABLE_SIZE],
             depths: [0; MEMTABLE_SIZE],
             parent: [0; MEMTABLE_SIZE],
@@ -131,7 +136,7 @@ impl Bst {
         }
     }
 
-    const fn depth(&self, x: Option<NonZeroU16>) -> u8{
+    const fn depth(&self, x: Option<TreePtrNz>) -> u8{
         match x {
             Option::None => 0,
             Option::Some(x) => self.depths[to_usize(x)],
@@ -157,16 +162,16 @@ impl Bst {
             let idx_l = self.nodes[idx_b].lc;
 
             self.swp(idx_b, idx_a);
-            self.nodes[idx_a].set_rc(idx_b as u16);
+            self.nodes[idx_a].set_rc(idx_b as TreePtr);
             self.nodes[idx_a].lc = idx_l;
             self.nodes[idx_b].lc = idx_m;
             self.nodes[idx_b].rc = idx_h;
             
             //update parent
-            self.parent[idx_b] = idx_a as u16;
-            self.parent[to_usize_o(idx_l)] = idx_a as u16;
-            self.parent[to_usize_o(idx_m)] = idx_b as u16; 
-            self.parent[to_usize_o(idx_h)] = idx_b as u16; 
+            self.parent[idx_b] = idx_a as TreePtr;
+            self.parent[to_usize_o(idx_l)] = idx_a as TreePtr;
+            self.parent[to_usize_o(idx_m)] = idx_b as TreePtr; 
+            self.parent[to_usize_o(idx_h)] = idx_b as TreePtr; 
 
 
             self.parent[0] = 0;
@@ -183,17 +188,17 @@ impl Bst {
             let idx_l = self.nodes[idx_a].lc;
 
             self.swp(idx_b, idx_a);
-            self.nodes[idx_a].set_lc(idx_b as u16);
+            self.nodes[idx_a].set_lc(idx_b as TreePtr);
             self.nodes[idx_a].rc = idx_h;
 
             self.nodes[idx_b].lc = idx_l;
             self.nodes[idx_b].rc = idx_m;
 
             //update_parent
-            self.parent[to_usize_o(idx_l)] = idx_b as u16;
-            self.parent[to_usize_o(idx_m)] = idx_b as u16; 
-            self.parent[to_usize_o(idx_h)] = idx_a as u16; 
-            self.parent[idx_b] = idx_a as u16;
+            self.parent[to_usize_o(idx_l)] = idx_b as TreePtr;
+            self.parent[to_usize_o(idx_m)] = idx_b as TreePtr; 
+            self.parent[to_usize_o(idx_h)] = idx_a as TreePtr; 
+            self.parent[idx_b] = idx_a as TreePtr;
 
             self.parent[0] = 0;
 
@@ -208,7 +213,7 @@ impl Bst {
     pub fn put(&mut self, key: usize, val: usize) {
         if self.nextfree == 0 {
             self.nextfree = 1;
-            self.nodes[ROOT] = BstNode::new(key, 0);
+            self.nodes[ROOT] = BstNode::new(key);
             self.depths[ROOT] =1;
             return;
         }
@@ -221,17 +226,17 @@ impl Bst {
 
         if key < self.nodes[idx].key {
             // assert!(self.nodes[idx].lc().is_none());
-            self.nodes[idx].set_lc(self.nextfree as u16);
-            self.nodes[self.nextfree] = BstNode::new(key, idx as u16);
+            self.nodes[idx].set_lc(self.nextfree as TreePtr);
+            self.nodes[self.nextfree] = BstNode::new(key);
         } else {
             // assert!(self.nodes[idx].rc().is_none());
-            self.nodes[idx].set_rc(self.nextfree as u16);
-            self.nodes[self.nextfree] = BstNode::new(key, idx as u16);
+            self.nodes[idx].set_rc(self.nextfree as TreePtr);
+            self.nodes[self.nextfree] = BstNode::new(key);
         }
         let mut cur: usize = self.nextfree;
         //initialize current node
         self.depths[cur] = 1;
-        self.parent[cur] = idx as u16;
+        self.parent[cur] = idx as TreePtr;
         self.vals[cur] = val;
         //update depths and rebalance
         let mut parent: usize = idx;
@@ -295,6 +300,30 @@ impl Bst {
                 Option::None
             }
         }
+    }
+
+
+    
+
+    //returns all key value pairs between lo and hi in o(hi-lo)
+    pub fn scan(&self, lo:usize, hi:usize) -> Vec<(usize, usize)> {
+        //leftmost leaf
+        let mut cur = self.search(lo);
+        
+        if let Some(rc) =  self.nodes[cur].rc() {
+
+
+        }
+
+
+        //find lo
+        
+        // find hi
+
+        // inorder traversal from lo to hi
+        return Vec::new();
+
+
     }
 
 
@@ -363,7 +392,7 @@ impl Bst {
 }
 pub fn test() {
 
-    let x = sample(8);
+    let x = sample(16);
 
     let mut memtable = Bst::new();
     let k = 400;
@@ -383,10 +412,10 @@ pub fn test() {
     for i in 0..k {
         // println!("{}", x.hash(i));
         memtable.put(x.hash(i), i);
-        // memtable.validate();
         // println!();
 
     }
+    // memtable.validate();
     // memtable.rl(0);
     // memtable.rl(0);
     // memtable.put(4,0);
