@@ -2,8 +2,6 @@
 use crate::hash::{HashFn, sample};
 
 
-const KEY_BITS = 32; 
-
 const CANNONICAL_BITS:usize = 14;
 const FINGERPRINT_BITS: usize = 8;
 
@@ -58,25 +56,25 @@ impl Rsqf {
         }
     }
 
-    fn locate_run(&self, c_idx: usize) -> (usize, usize){
-        let block_idx  = c_idx & ((1<<6) -1);
-        let idx = c_idx >> 6; 
-
-
-
-    }
-
-    fn insert(&mut self, key: usize) {
-        let hash = self.hash_fn.hash(key);
-        let c_idx = hash & ((1 << CANNONICAL_BITS )- 1);
-        let fingerprint = hash >> CANNONICAL_BITS;
-
-        let (n_blk, blk_idx) = self.locate_run(c_idx);
-
-    
-
-    }
-
+    // fn locate_run(&self, c_idx: usize) -> (usize, usize){
+    //     let block_idx  = c_idx & ((1<<6) -1);
+    //     let idx = c_idx >> 6; 
+    //
+    //
+    //
+    // }
+    //
+    // fn insert(&mut self, key: usize) {
+    //     let hash = self.hash_fn.hash(key);
+    //     let c_idx = hash & ((1 << CANNONICAL_BITS )- 1);
+    //     let fingerprint = hash >> CANNONICAL_BITS;
+    //
+    //     let (n_blk, blk_idx) = self.locate_run(c_idx);
+    //
+    //
+    //
+    // }
+    //
 
 }
 
