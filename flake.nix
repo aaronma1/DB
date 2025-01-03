@@ -17,6 +17,7 @@
       {
         devShells.default = with pkgs; mkShell {
           buildInputs = [
+            helix
             rust-analyzer
             openssl
             pkg-config
